@@ -9,7 +9,7 @@ import base64
 
 app = Flask(__name__)
 
-# Configure session to use filesystem (each user gets a unique session)
+# Configure session to use filesystem (ensuring unique chats per user)
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
@@ -35,6 +35,7 @@ settings = {
 
 # Text-to-speech function
 def text_to_speech(text, lang="en"):
+    """Convert text to speech and return base64-encoded audio."""
     tts = gTTS(text=text, lang=lang, slow=False)
     audio_bytes = BytesIO()
     tts.write_to_fp(audio_bytes)
@@ -51,7 +52,7 @@ def index():
 @app.route("/chat", methods=["POST"])
 def chat():
     if "chat_history" not in session:
-        session["chat_history"] = []  # Create unique chat history for user
+        session["chat_history"] = []  # Unique chat history for each user
 
     data = request.get_json()
     prompt = data.get("prompt")
@@ -59,11 +60,11 @@ def chat():
     # Add user message to history
     session["chat_history"].append({"role": "user", "content": prompt, "audio": None})
 
-    # Create system message for structured output
+    # Create system message
     system_message = f"""
     You are a {settings['behavior'].lower()} assistant specialized in {settings['expertise']}.
-    Your interests include {', '.join(settings['interests']) if settings['interests'] else 'various topics'}.
-    Respond in a {settings['behavior'].lower()} manner. Provide clear, concise answers in a structured bullet-point format.
+    Your interests include {', '.join(settings['interests'])}.
+    Respond in a {settings['behavior'].lower()} manner using structured bullet points.
     """
 
     # Prepare messages for API
@@ -82,7 +83,7 @@ def chat():
         )
         assistant_response = response.choices[0].message.content
 
-        # Generate audio if enabled
+        # Generate voice if enabled
         audio_base64 = None
         if settings["voice_enabled"]:
             audio_base64 = text_to_speech(assistant_response, lang=settings["language_code"])
